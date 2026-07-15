@@ -3,7 +3,8 @@ using UnityEngine;
 
 namespace PolyFrontlines.Networking.Connection
 {
-    
+    // Temporary dev-only UI for testing. Will be replaced by the real
+    // frontend/menu flow later.
     public class NetworkBootstrap : MonoBehaviour
     {
         private void OnGUI()
@@ -11,6 +12,13 @@ namespace PolyFrontlines.Networking.Connection
             GUILayout.BeginArea(new Rect(10, 10, 200, 150));
 
             var nm = NetworkManager.Singleton;
+
+            if (nm == null)
+            {
+                GUILayout.Label("No NetworkManager in scene");
+                GUILayout.EndArea();
+                return;
+            }
 
             if (!nm.IsClient && !nm.IsServer)
             {

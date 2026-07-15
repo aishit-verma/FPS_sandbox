@@ -11,6 +11,11 @@ namespace PolyFrontlines.Networking.Movement
         [SerializeField] private float correctionThreshold = 0.05f;
         [SerializeField] private float interpolationDelay = 0.1f; // seconds rendered in the past, for remote players
 
+        public void SetMoveSpeed(float newSpeed)
+        {
+            moveSpeed = newSpeed;
+        }
+
         [Header("Testing Only")]
         [SerializeField] private bool simulateAutoMove = false;
         [SerializeField] private float autoMoveSpeed = 1f;

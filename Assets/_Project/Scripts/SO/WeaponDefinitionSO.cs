@@ -15,5 +15,8 @@ namespace PolyFrontlines.Data
         public float damageFar = 15f;
 
         public float fireRate = 0.1f;
+        public int magazineSize = 30;
+        public int maxAmmo = 90; // reserve ammo, not counting what's in the magazine
+        public float reloadTime = 2f;
     }
 }

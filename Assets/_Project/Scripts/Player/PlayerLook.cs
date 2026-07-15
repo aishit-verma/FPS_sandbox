@@ -19,6 +19,11 @@ namespace PolyFrontlines.Gameplay.Player
                 return;
             }
 
+            Cursor.lockState = CursorLockMode.None;
+        }
+
+        public void LockCursor()
+        {
             Cursor.lockState = CursorLockMode.Locked;
         }
 
