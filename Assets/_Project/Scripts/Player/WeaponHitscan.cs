@@ -156,16 +156,17 @@ namespace PolyFrontlines.Gameplay.Weapons
             if (didHit)
             {
                 var health = hit.collider.GetComponentInParent<PolyFrontlines.Gameplay.Health.Health>();
-                if (health != null)
+                if (health != null && !Team.TeamUtils.AreSameTeam(this, health))
                 {
                     float damage = CalculateDamage(hit.distance);
                     health.ApplyDamage(damage, OwnerClientId, weaponDefinition.weaponName);
-                    Debug.Log($"[HIT] target={hit.collider.name} distance={hit.distance:F1}m damage={damage} rewoundTick={firedAtTick}");
                 }
-            }
-            else
-            {
-                Debug.Log("[MISS]");
+
+                var crate = hit.collider.GetComponentInParent<Support.AmmoCrate>();
+                if (crate != null)
+                {
+                    crate.ApplyDamage(CalculateDamage(hit.distance), Team.TeamUtils.GetTeamId(this));
+                }
             }
         }
 

@@ -68,7 +68,10 @@ namespace PolyFrontlines.Gameplay.Weapons
 
             GameObject grenadeObj = Instantiate(grenadePrefab, origin, Quaternion.identity);
             grenadeObj.GetComponent<NetworkObject>().Spawn();
-            grenadeObj.GetComponent<GrenadeProjectile>().Launch(direction * definition.throwForce, OwnerClientId);
+            grenadeObj.GetComponent<GrenadeProjectile>().Launch(
+                direction * definition.throwForce,
+                OwnerClientId,
+                Team.TeamUtils.GetTeamId(this));
         }
     }
 }

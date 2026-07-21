@@ -5,28 +5,27 @@ using PolyFrontlines.Utils.Prediction;
 
 namespace PolyFrontlines.Networking.Movement
 {
+    [RequireComponent(typeof(CharacterController))]
     public class PlayerMovement : NetworkBehaviour
     {
         [SerializeField] private float moveSpeed = 5f;
+        [SerializeField] private float gravity = -20f;
         [SerializeField] private float correctionThreshold = 0.05f;
-        [SerializeField] private float interpolationDelay = 0.1f; // seconds rendered in the past, for remote players
+        [SerializeField] private float interpolationDelay = 0.1f;
+
+        private const int BufferCapacity = 256;
 
         public void SetMoveSpeed(float newSpeed)
         {
             moveSpeed = newSpeed;
         }
 
-        [Header("Testing Only")]
-        [SerializeField] private bool simulateAutoMove = false;
-        [SerializeField] private float autoMoveSpeed = 1f;
-
-        private const int BufferCapacity = 256;
-
         private struct ServerState : INetworkSerializeByMemcpy
         {
             public int Tick;
             public Vector3 Position;
             public float Yaw;
+            public float VerticalVelocity;
         }
 
         private struct Snapshot
@@ -40,20 +39,25 @@ namespace PolyFrontlines.Networking.Movement
             new NetworkVariable<ServerState>(writePerm: NetworkVariableWritePermission.Server);
 
         private TickHistoryBuffer<Vector3> _history;
-        private Vector3 _authoritativePosition;
+        private CharacterController _controller;
 
-        // Only used by remote viewers (not owner, not server) to smooth movement.
+        // Owner-side prediction state
+        private float _verticalVelocity;
+
+        // Server-side simulation state
+        private float _serverVerticalVelocity;
+
         private readonly List<Snapshot> _snapshots = new List<Snapshot>();
 
         private void Awake()
         {
             _history = new TickHistoryBuffer<Vector3>(BufferCapacity);
+            _controller = GetComponent<CharacterController>();
         }
 
         public override void OnNetworkSpawn()
         {
             transform.position = _serverState.Value.Position;
-            _authoritativePosition = _serverState.Value.Position;
 
             if (IsOwner)
             {
@@ -62,6 +66,9 @@ namespace PolyFrontlines.Networking.Movement
             else if (!IsServer)
             {
                 _serverState.OnValueChanged += OnSnapshotReceived;
+                // Remote players are moved manually via interpolation, not
+                // simulated — their controller must not fight that.
+                _controller.enabled = false;
             }
         }
 
@@ -85,25 +92,34 @@ namespace PolyFrontlines.Networking.Movement
 
             float h = Input.GetAxis("Horizontal");
             float v = Input.GetAxis("Vertical");
-
-            if (simulateAutoMove)
-            {
-                h = Mathf.Sin(Time.time * autoMoveSpeed);
-                v = 0f;
-            }
-
             Vector3 localInput = new Vector3(h, 0f, v);
             if (localInput.sqrMagnitude > 1f) localInput.Normalize();
 
-            // W/A/S/D relative to current facing, not fixed world axes.
             Vector3 input = transform.right * localInput.x + transform.forward * localInput.z;
 
-            Vector3 predictedPosition = transform.position + input * moveSpeed * NetworkTick.TickInterval;
-            transform.position = predictedPosition;
+            SimulateMove(_controller, input, ref _verticalVelocity);
 
-            _history.Record(tick, input, predictedPosition);
+            _history.Record(tick, input, transform.position);
 
             SubmitMovementServerRpc(tick, input, transform.eulerAngles.y);
+        }
+
+        // The single shared simulation step — used identically by owner
+        // prediction, server authority, and reconciliation replay. This
+        // being one method is what keeps all three consistent.
+        private void SimulateMove(CharacterController controller, Vector3 input, ref float verticalVelocity)
+        {
+            if (controller.isGrounded && verticalVelocity < 0f)
+            {
+                verticalVelocity = -2f; // small downward stick keeps isGrounded stable on slopes
+            }
+
+            verticalVelocity += gravity * NetworkTick.TickInterval;
+
+            Vector3 delta = input * moveSpeed * NetworkTick.TickInterval;
+            delta.y = verticalVelocity * NetworkTick.TickInterval;
+
+            controller.Move(delta);
         }
 
         private void Update()
@@ -112,8 +128,8 @@ namespace PolyFrontlines.Networking.Movement
 
             if (IsServer)
             {
-                transform.position = _serverState.Value.Position;
-                transform.rotation = Quaternion.Euler(0f, _serverState.Value.Yaw, 0f);
+                // Server's own view of remote players: position is already
+                // authoritative from the RPC simulation — nothing to do here.
                 return;
             }
 
@@ -139,7 +155,6 @@ namespace PolyFrontlines.Networking.Movement
 
             float renderTime = Time.time - interpolationDelay;
 
-            // Find the two snapshots that bracket renderTime.
             for (int i = 0; i < _snapshots.Count - 1; i++)
             {
                 if (_snapshots[i].ReceivedAt <= renderTime && renderTime <= _snapshots[i + 1].ReceivedAt)
@@ -153,8 +168,6 @@ namespace PolyFrontlines.Networking.Movement
                 }
             }
 
-            // renderTime is newer than everything we have (e.g. just started
-            // receiving snapshots) — snap to the latest known position.
             transform.position = _snapshots[_snapshots.Count - 1].Position;
             transform.rotation = _snapshots[_snapshots.Count - 1].Rotation;
         }
@@ -172,7 +185,15 @@ namespace PolyFrontlines.Networking.Movement
                 return;
             }
 
-            Vector3 replayedPosition = confirmed.Position;
+            // Correction: snap to the server's confirmed state (position AND
+            // vertical velocity — mid-fall corrections must not reset fall
+            // speed), then replay buffered inputs through the same collision-
+            // aware simulation to catch back up.
+            _controller.enabled = false;
+            transform.position = confirmed.Position;
+            _controller.enabled = true;
+            _verticalVelocity = confirmed.VerticalVelocity;
+
             for (int t = confirmed.Tick + 1; t <= NetworkTick.Current; t++)
             {
                 if (!_history.TryGetInput(t, out Vector3 recordedInput))
@@ -180,11 +201,9 @@ namespace PolyFrontlines.Networking.Movement
                     continue;
                 }
 
-                replayedPosition += recordedInput * moveSpeed * NetworkTick.TickInterval;
-                _history.UpdateResultingPosition(t, replayedPosition);
+                SimulateMove(_controller, recordedInput, ref _verticalVelocity);
+                _history.UpdateResultingPosition(t, transform.position);
             }
-
-            transform.position = replayedPosition;
         }
 
         [ServerRpc]
@@ -192,8 +211,58 @@ namespace PolyFrontlines.Networking.Movement
         {
             if (input.sqrMagnitude > 1f) input.Normalize();
 
-            _authoritativePosition += input * moveSpeed * NetworkTick.TickInterval;
-            _serverState.Value = new ServerState { Tick = tick, Position = _authoritativePosition, Yaw = yaw };
+            // On a host, this same object's owner prediction already moved
+            // the controller this tick — simulating again would double it.
+            // Only simulate when the server is NOT also the owner.
+            if (!IsOwner)
+            {
+                SimulateMove(_controller, input, ref _serverVerticalVelocity);
+            }
+            else
+            {
+                _serverVerticalVelocity = _verticalVelocity;
+            }
+
+            _serverState.Value = new ServerState
+            {
+                Tick = tick,
+                Position = transform.position,
+                Yaw = yaw,
+                VerticalVelocity = _serverVerticalVelocity
+            };
+        }
+
+        public void Teleport(Vector3 newPosition)
+        {
+            if (!IsServer) return;
+
+            _controller.enabled = false;
+            transform.position = newPosition;
+            _controller.enabled = true;
+            _serverVerticalVelocity = 0f;
+
+            int tick = NetworkTick.Current;
+            _serverState.Value = new ServerState
+            {
+                Tick = tick,
+                Position = newPosition,
+                Yaw = transform.eulerAngles.y,
+                VerticalVelocity = 0f
+            };
+
+            TeleportClientRpc(newPosition, tick);
+        }
+
+        [ClientRpc]
+        private void TeleportClientRpc(Vector3 newPosition, int tick)
+        {
+            if (!IsOwner) return;
+
+            _controller.enabled = false;
+            transform.position = newPosition;
+            _controller.enabled = true;
+            _verticalVelocity = 0f;
+            _history.Record(tick, Vector3.zero, newPosition);
         }
     }
 }

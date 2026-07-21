@@ -12,6 +12,10 @@ namespace PolyFrontlines.Gameplay.Player
         private readonly NetworkVariable<int> _selectedClass =
             new NetworkVariable<int>(-1, writePerm: NetworkVariableWritePermission.Server);
 
+        // Resolvable on any machine (index syncs, catalog is local everywhere),
+        // so the server can validate ability permissions too.
+        public ClassDefinitionSO CurrentClass => ClassCatalog.Instance.Get(_selectedClass.Value);
+
         private WeaponHitscan _weapon;
         private Health.Health _health;
         private PlayerMovement _movement;

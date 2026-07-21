@@ -34,6 +34,12 @@ namespace PolyFrontlines.Gameplay.Health
             _currentHealth.Value = Mathf.Clamp(value, 0f, maxHealth);
         }
 
+        public void FullHeal()
+        {
+            if (!IsServer) return;
+            _currentHealth.Value = maxHealth;
+        }
+
         public override void OnNetworkSpawn()
         {
             if (IsServer)

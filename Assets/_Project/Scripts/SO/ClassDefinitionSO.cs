@@ -10,5 +10,9 @@ namespace PolyFrontlines.Data
         public WeaponDefinitionSO primaryWeapon;
         public float maxHealth = 100f;
         public float moveSpeed = 5f;
+
+        [Header("Abilities")]
+        public bool canRevive = false;
+        public bool canDropAmmoCrate = false;
     }
 }

@@ -13,6 +13,7 @@ namespace PolyFrontlines.Gameplay.Weapons
         private float _fuseTimer;
         private bool _exploded;
         private ulong _throwerClientId;
+        private int _throwerTeamId = -1;
 
         private void Awake()
         {
@@ -26,11 +27,12 @@ namespace PolyFrontlines.Gameplay.Weapons
             _rb.isKinematic = !IsServer;
         }
 
-        public void Launch(Vector3 velocity, ulong throwerClientId)
+        public void Launch(Vector3 velocity, ulong throwerClientId, int throwerTeamId)
         {
             if (!IsServer) return;
             _rb.linearVelocity = velocity;
             _throwerClientId = throwerClientId;
+            _throwerTeamId = throwerTeamId;
         }
 
         private void Update()
@@ -54,6 +56,7 @@ namespace PolyFrontlines.Gameplay.Weapons
             {
                 var health = col.GetComponentInParent<PolyFrontlines.Gameplay.Health.Health>();
                 if (health == null) continue;
+                if (Team.TeamUtils.GetTeamId(health) == _throwerTeamId) continue;
 
                 float distance = Vector3.Distance(transform.position, col.transform.position);
                 float falloff = Mathf.Clamp01(1f - (distance / definition.radius));

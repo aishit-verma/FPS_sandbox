@@ -3,6 +3,8 @@ using UnityEngine;
 using PolyFrontlines.Utils.StateMachine;
 using PolyFrontlines.Gameplay.Weapons;
 using PolyFrontlines.Networking.Movement;
+using PolyFrontlines.Gameplay.Team;
+using PolyFrontlines.Gameplay.Objectives;
 using PolyFrontlines.Core;
 
 namespace PolyFrontlines.Gameplay.Player.LifeStates
@@ -13,11 +15,11 @@ namespace PolyFrontlines.Gameplay.Player.LifeStates
 
         [SerializeField] private float bleedOutTime = 20f;
         [SerializeField] private float reviveHealth = 50f;
+        [SerializeField] private float respawnDelay = 5f;
 
         public float BleedOutTime => bleedOutTime;
+        public float RespawnDelay => respawnDelay;
 
-        // Server-written, so every machine can see (and later, display)
-        // whether this player is alive, downed, or dead.
         private readonly NetworkVariable<LifeStateId> _visibleState =
             new NetworkVariable<LifeStateId>(LifeStateId.Alive, writePerm: NetworkVariableWritePermission.Server);
 
@@ -27,6 +29,7 @@ namespace PolyFrontlines.Gameplay.Player.LifeStates
         private Health.Health _health;
         private PlayerMovement _movement;
         private WeaponHitscan _weapon;
+        private PlayerTeam _team;
 
         private ulong _lastKillerClientId;
         private string _lastWeaponId;
@@ -36,6 +39,7 @@ namespace PolyFrontlines.Gameplay.Player.LifeStates
             _health = GetComponent<Health.Health>();
             _movement = GetComponent<PlayerMovement>();
             _weapon = GetComponent<WeaponHitscan>();
+            _team = GetComponent<PlayerTeam>();
 
             _stateMachine = new StateMachine();
             _stateMachine.RegisterState(typeof(AliveState), new AliveState(this));
@@ -121,6 +125,20 @@ namespace PolyFrontlines.Gameplay.Player.LifeStates
         {
             if (_movement != null) _movement.enabled = enabled;
             if (_weapon != null) _weapon.enabled = enabled;
+        }
+
+        public void Respawn()
+        {
+            if (!IsServer) return;
+
+            int teamId = _team != null ? _team.TeamId : -1;
+            Vector3 spawnPos = RespawnManager.GetSpawnPosition(teamId);
+
+            _movement.Teleport(spawnPos);
+            _health.FullHeal();
+
+            _stateMachine.ChangeState(typeof(AliveState));
+            _visibleState.Value = LifeStateId.Alive;
         }
     }
 }

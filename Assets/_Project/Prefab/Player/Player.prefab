@@ -21,6 +21,8 @@ GameObject:
   - component: {fileID: 6557776364052573266}
   - component: {fileID: 2723476183847605782}
   - component: {fileID: 4825046309327627098}
+  - component: {fileID: -3407509071897627225}
+  - component: {fileID: 1445615173002206444}
   m_Layer: 0
   m_Name: Player
   m_TagString: Untagged
@@ -37,7 +39,7 @@ Transform:
   m_GameObject: {fileID: 213620001936872547}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0.35, y: 1, z: -5.41}
+  m_LocalPosition: {x: 0.35, y: 0, z: -5.41}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
@@ -86,10 +88,9 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::PolyFrontlines.Networking.Movement.PlayerMovement
   ShowTopMostFoldoutHeaderGroup: 1
   moveSpeed: 5
+  gravity: -20
   correctionThreshold: 0.1
   interpolationDelay: 0
-  simulateAutoMove: 0
-  autoMoveSpeed: 1
 --- !u!114 &8294268085353266407
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -242,6 +243,45 @@ MonoBehaviour:
   ShowTopMostFoldoutHeaderGroup: 1
   bleedOutTime: 20
   reviveHealth: 50
+  respawnDelay: 5
+--- !u!114 &-3407509071897627225
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 213620001936872547}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 89bd7c864e6fce247b1ca48cb47a691e, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::PolyFrontlines.Gameplay.Team.PlayerTeam
+  ShowTopMostFoldoutHeaderGroup: 1
+--- !u!143 &1445615173002206444
+CharacterController:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 213620001936872547}
+  m_Material: {fileID: 0}
+  m_IncludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ExcludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_LayerOverridePriority: 0
+  m_ProvidesContacts: 0
+  m_Enabled: 1
+  serializedVersion: 3
+  m_Height: 2
+  m_Radius: 0.5
+  m_SlopeLimit: 45
+  m_StepOffset: 0.3
+  m_SkinWidth: 0.08
+  m_MinMoveDistance: 0.001
+  m_Center: {x: 0, y: 1, z: 0}
 --- !u!1 &663516460084076741
 GameObject:
   m_ObjectHideFlags: 0

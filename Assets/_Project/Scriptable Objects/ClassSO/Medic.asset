@@ -16,3 +16,5 @@ MonoBehaviour:
   primaryWeapon: {fileID: 11400000, guid: 3bdcd39a04948ac4b8a22a9c955f7727, type: 2}
   maxHealth: 100
   moveSpeed: 5
+  canRevive: 1
+  canDropAmmoCrate: 0
